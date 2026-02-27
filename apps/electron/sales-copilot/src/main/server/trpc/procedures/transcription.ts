@@ -3,8 +3,8 @@ import {
   StartTranscriptionInputSchema,
   StartTranscriptionOutputSchema,
 } from '../../../../shared/schemas/capture.schema';
-import { createChildLogger } from '../../../lib/logger';
 import { loadRuntimeConfig } from '../../../lib/config';
+import { createChildLogger } from '../../../lib/logger';
 import { connect } from 'videodb';
 import type { CaptureSessionFull, RTStream } from 'videodb';
 
@@ -36,11 +36,6 @@ async function startRealtimeTranscriptionWithWs(
   apiUrl?: string
 ): Promise<void> {
   try {
-    logger.info(
-      { sessionId: captureSessionId, micWsConnectionId, sysAudioWsConnectionId },
-      '[Transcript] Starting transcription for session'
-    );
-
     // Connect to VideoDB with API key (like Python version)
     const connectOptions: { apiKey: string; baseUrl?: string } = { apiKey };
     if (apiUrl) {
@@ -58,18 +53,9 @@ async function startRealtimeTranscriptionWithWs(
         const session: CaptureSessionFull = await conn.getCaptureSession(captureSessionId);
 
         if (!session) {
-          logger.warn(
-            { attempt: attempt + 1 },
-            '[Transcript] Session not found yet'
-          );
           await sleep(RETRY_DELAY_MS);
           continue;
         }
-
-        logger.info(
-          { attempt: attempt + 1, status: session.status },
-          '[Transcript] Session status'
-        );
 
         // Refresh to get RTStreams
         await session.refresh();
@@ -102,82 +88,33 @@ async function startRealtimeTranscriptionWithWs(
         const hasRequiredSystemAudio = !needsSystemAudio || systemAudios.length > 0;
 
         if (hasRequiredMic && hasRequiredSystemAudio) {
-          logger.info(
-            {
-              mics: mics.length,
-              systemAudios: systemAudios.length,
-              needsMic,
-              needsSystemAudio,
-            },
-            '[Transcript] Found required RTStreams'
-          );
           break;
         } else {
-          logger.info(
-            {
-              attempt: attempt + 1,
-              mics: mics.length,
-              systemAudios: systemAudios.length,
-              needsMic,
-              needsSystemAudio,
-            },
-            '[Transcript] Required RTStreams not ready yet, waiting...'
-          );
           await sleep(RETRY_DELAY_MS);
         }
       } catch (error) {
-        logger.warn(
-          { attempt: attempt + 1, error },
-          '[Transcript] Attempt error'
-        );
+        logger.error({ error, sessionId: captureSessionId }, 'Transcription polling attempt failed');
         await sleep(RETRY_DELAY_MS);
       }
     }
 
     if ((needsMic && mics.length === 0) || (needsSystemAudio && systemAudios.length === 0)) {
-      logger.error(
-        {
-          maxRetries: MAX_RETRIES,
-          mics: mics.length,
-          systemAudios: systemAudios.length,
-          needsMic,
-          needsSystemAudio,
-        },
-        '[Transcript] Failed to find required RTStreams after max retries'
-      );
       return;
     }
 
     // Start transcription on mic stream with WebSocket connection ID
     if (mics.length > 0 && micWsConnectionId) {
       const micStream = mics[0];
-      logger.info(
-        { rtstreamId: micStream.id, wsConnectionId: micWsConnectionId },
-        '[Transcript] Starting transcript on mic'
-      );
       await micStream.startTranscript(micWsConnectionId);
-      logger.info('[Transcript] Mic transcription started');
-    } else if (mics.length > 0) {
-      logger.info('[Transcript] Mic stream found but no ws_connection_id provided, skipping');
     }
 
     // Start transcription on system audio stream with WebSocket connection ID
     if (systemAudios.length > 0 && sysAudioWsConnectionId) {
       const sysStream = systemAudios[0];
-      logger.info(
-        { rtstreamId: sysStream.id, wsConnectionId: sysAudioWsConnectionId },
-        '[Transcript] Starting transcript on sys_audio'
-      );
       await sysStream.startTranscript(sysAudioWsConnectionId);
-      logger.info('[Transcript] System audio transcription started');
-    } else if (systemAudios.length > 0) {
-      logger.info('[Transcript] System audio stream found but no ws_connection_id provided, skipping');
     }
   } catch (error) {
-    logger.error(
-      { error, sessionId: captureSessionId },
-      '[Transcript] Failed to start transcription'
-    );
+    logger.error({ error, sessionId: captureSessionId }, 'Failed to start transcription');
   }
 }
 
@@ -188,14 +125,8 @@ export const transcriptionRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { sessionId, micWsConnectionId, sysAudioWsConnectionId } = input;
 
-      logger.info(
-        { sessionId, micWsConnectionId, sysAudioWsConnectionId },
-        'Starting transcription'
-      );
-
       // Validate that at least one WebSocket connection ID is provided
       if (!micWsConnectionId && !sysAudioWsConnectionId) {
-        logger.warn({ sessionId }, 'No WebSocket connection IDs provided');
         return {
           status: 'skipped',
           sessionId,
@@ -206,7 +137,7 @@ export const transcriptionRouter = router({
       // Get user's API key from context
       const apiKey = ctx.user?.apiKey;
       if (!apiKey) {
-        logger.error({ sessionId }, 'No API key available');
+        logger.error({ sessionId }, 'No API key available for transcription');
         return {
           status: 'error',
           sessionId,

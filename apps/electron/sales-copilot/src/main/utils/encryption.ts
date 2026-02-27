@@ -29,7 +29,6 @@ function generateKey(): Buffer {
 
   // Write key with restricted permissions
   fs.writeFileSync(keyPath, key.toString('hex'), { mode: 0o600 });
-  logger.info('Generated new MCP encryption key');
 
   return key;
 }
@@ -50,7 +49,6 @@ function loadKey(): Buffer {
       encryptionKey = Buffer.from(keyHex, 'hex');
 
       if (encryptionKey.length !== KEY_LENGTH) {
-        logger.warn('Invalid encryption key length, regenerating');
         encryptionKey = generateKey();
       }
     } else {

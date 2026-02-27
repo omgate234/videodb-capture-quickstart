@@ -63,18 +63,7 @@ export const recordingsRouter = router({
   list: protectedProcedure
     .output(z.array(RecordingSchema))
     .query(async () => {
-      logger.info('Fetching all recordings');
       const recordings = getAllRecordings();
-      logger.info({
-        count: recordings.length,
-        recordings: recordings.map(r => ({
-          id: r.id,
-          sessionId: r.sessionId,
-          status: r.status,
-          insightsStatus: r.insightsStatus,
-          videoId: r.videoId,
-        })),
-      }, 'Recordings fetched');
       return recordings.map((r) => toApiRecording(r)!);
     }),
 
@@ -82,7 +71,6 @@ export const recordingsRouter = router({
     .input(GetRecordingInputSchema)
     .output(RecordingSchema.nullable())
     .query(async ({ input }) => {
-      logger.debug({ recordingId: input.recordingId }, 'Fetching recording');
       const recording = getRecordingById(input.recordingId);
       return toApiRecording(recording);
     }),

@@ -59,7 +59,6 @@ export class InsightsService {
       } else {
         // No insights (likely no transcript), but indexing succeeded
         updateRecording(recordingId, { insightsStatus: 'ready' });
-        logger.info({ recordingId, videoId }, 'Video indexed but no insights generated (no transcript or empty)');
       }
 
       logger.info({ recordingId, videoId }, 'Insights processing completed');

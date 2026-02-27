@@ -9,7 +9,6 @@ export function setupPermissionHandlers(): void {
     if (process.platform !== 'darwin') return true;
 
     const status = systemPreferences.getMediaAccessStatus('microphone');
-    logger.debug({ status }, 'Microphone permission status');
     return status === 'granted';
   });
 
@@ -17,7 +16,6 @@ export function setupPermissionHandlers(): void {
     if (process.platform !== 'darwin') return true;
 
     const status = systemPreferences.getMediaAccessStatus('screen');
-    logger.debug({ status }, 'Screen permission status');
     return status === 'granted';
   });
 
@@ -27,7 +25,6 @@ export function setupPermissionHandlers(): void {
     // On macOS, we check if we have accessibility permissions
     // This is typically required for screen recording
     const isTrusted = systemPreferences.isTrustedAccessibilityClient(false);
-    logger.debug({ isTrusted }, 'Accessibility permission status');
     return isTrusted;
   });
 

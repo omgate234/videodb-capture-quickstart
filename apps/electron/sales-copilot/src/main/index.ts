@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs';
 import { initDatabase, closeDatabase } from './db';
 import { startServer, stopServer } from './server';
-import { getTunnelService } from './services/tunnel.service';
 import {
   setupIpcHandlers,
   removeIpcHandlers,
@@ -203,25 +202,14 @@ async function startServices(): Promise<void> {
   initDatabase();
 
   const actualPort = await startServer(port);
-
-  logger.info({ port: actualPort }, '🚇 About to start tunnel service...');
-  try {
-    const tunnelService = getTunnelService(actualPort);
-    logger.info('🚇 Got tunnel service instance, calling start()...');
-    const tunnelStatus = await tunnelService.start();
-    logger.info({ tunnelStatus }, '🚇 Tunnel service start() completed');
-  } catch (tunnelError) {
-    logger.error({ error: tunnelError }, '❌ Tunnel startup threw an exception');
-  }
+  logger.info({ port: actualPort }, 'Server started (using WebSocket for session events)');
 
   // Initialize MCP orchestrator and connect to auto-connect servers
-  logger.info('🔌 Initializing MCP Connection Orchestrator...');
   try {
     const mcpOrchestrator = getConnectionOrchestrator();
     await mcpOrchestrator.initialize();
-    logger.info('🔌 MCP Connection Orchestrator initialized');
   } catch (mcpError) {
-    logger.error({ error: mcpError }, '❌ MCP Orchestrator initialization failed');
+    logger.error({ error: mcpError }, 'MCP orchestrator initialization failed');
   }
 }
 
@@ -237,18 +225,13 @@ async function stopServices(): Promise<void> {
   await shutdownCaptureClient();
 
   // Shutdown MCP orchestrator
-  logger.info('🔌 Shutting down MCP Connection Orchestrator...');
   try {
     const mcpOrchestrator = getConnectionOrchestrator();
     await mcpOrchestrator.shutdown();
     resetConnectionOrchestrator();
-    logger.info('🔌 MCP Connection Orchestrator shut down');
   } catch (mcpError) {
-    logger.error({ error: mcpError }, '❌ MCP Orchestrator shutdown failed');
+    logger.error({ error: mcpError }, 'MCP orchestrator shutdown failed');
   }
-
-  const tunnelService = getTunnelService(0);
-  await tunnelService.stop();
 
   await stopServer();
 

@@ -47,8 +47,6 @@ function sendToRenderer(channel: string, data: unknown): void {
  * Setup MCP IPC handlers
  */
 export function setupMCPHandlers(): void {
-  logger.info('Setting up MCP IPC handlers');
-
   const orchestrator = getConnectionOrchestrator();
   const copilot = getSalesCopilot();
 
@@ -59,21 +57,13 @@ export function setupMCPHandlers(): void {
       const keywords = JSON.parse(setting.value);
       const mcpAgent = getMCPAgent();
       mcpAgent.setCustomTriggerKeywords(keywords);
-      logger.info({ keywordCount: keywords.length }, 'Loaded saved MCP trigger keywords');
     }
   } catch (error) {
-    logger.warn({ error }, 'Failed to load saved trigger keywords');
+    logger.error({ error }, 'Failed to load saved trigger keywords');
   }
 
   // Forward MCP events from copilot to renderer
   copilot.on('mcp-result', (data: { result: MCPDisplayResult }) => {
-    logger.info({
-      resultId: data.result.id,
-      toolName: data.result.toolName,
-      displayType: data.result.displayType,
-      hasContent: !!data.result.content,
-      contentPreview: data.result.content?.text?.slice(0, 100),
-    }, 'Forwarding MCP result to renderer');
     sendToRenderer('mcp:result', data);
   });
 
@@ -325,7 +315,6 @@ export function setupMCPHandlers(): void {
   ipcMain.handle('mcp:dismiss-result', async (_event, resultId: string) => {
     try {
       // This is handled client-side in the store, but we can track it if needed
-      logger.info({ resultId }, 'MCP result dismissed');
       return { success: true };
     } catch (error) {
       logger.error({ error }, 'Failed to dismiss result');
@@ -339,7 +328,6 @@ export function setupMCPHandlers(): void {
   ipcMain.handle('mcp:pin-result', async (_event, resultId: string) => {
     try {
       // This is handled client-side in the store, but we can track it if needed
-      logger.info({ resultId }, 'MCP result pinned');
       return { success: true };
     } catch (error) {
       logger.error({ error }, 'Failed to pin result');
@@ -379,16 +367,12 @@ export function setupMCPHandlers(): void {
       // Update the MCP agent with the new keywords
       const mcpAgent = getMCPAgent();
       mcpAgent.setCustomTriggerKeywords(keywords);
-
-      logger.info({ keywordCount: keywords.length }, 'MCP trigger keywords updated');
       return { success: true };
     } catch (error) {
       logger.error({ error }, 'Failed to set trigger keywords');
       return { success: false, error: (error as Error).message };
     }
   });
-
-  logger.info('MCP IPC handlers registered');
 }
 
 /**
@@ -413,5 +397,4 @@ export function removeMCPHandlers(): void {
   ipcMain.removeHandler('mcp:get-trigger-keywords');
   ipcMain.removeHandler('mcp:set-trigger-keywords');
 
-  logger.info('MCP IPC handlers removed');
 }
